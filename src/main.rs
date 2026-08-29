@@ -20,6 +20,7 @@ fn app(client: Client) -> Router {
     Router::new()
         .route("/", get(|| async { "Hello World" }))
         .route("/user/signUp", post(signup))
+        .route("/user/signIn", post(signin))
         .with_state(Arc::new(client))
 }
 
@@ -40,9 +41,36 @@ async fn signup(
     (StatusCode::OK, "Sign Up SuccessFull").into_response()
 }
 
+async fn signin(
+    State(client): State<Arc<Client>>,
+    Json(user): Json<UserRequest>,
+) -> impl IntoResponse {
+    let row = client
+        .query(
+            "SELECT * FROM users WHERE username = $1 OR email = $1",
+            &[&user.username],
+        )
+        .await
+        .unwrap();
+
+    if row.is_empty() {
+        return (StatusCode::UNAUTHORIZED, "User doesn't exist").into_response();
+    }
+
+    let hashed_password: String = row[0].get(2);
+
+    let is_valid = bcrypt::verify(user.password,&hashed_password).unwrap();
+    if is_valid{
+        (StatusCode::OK, "Success Fully Signed In").into_response()
+    }else{
+        (StatusCode::UNAUTHORIZED, "Incorrect Password").into_response()
+    }
+
+}
+
 #[derive(Debug, Deserialize)]
 struct UserRequest {
-    email: String,
+    email: Option<String>,//making email as optional for signin
     username: String,
     password: String,
 }
