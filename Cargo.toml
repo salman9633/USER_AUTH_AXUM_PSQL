@@ -8,4 +8,5 @@ axum = "0.8.9"
 serde = { version = "1.0.229", features = ["derive"] }
 tokio = { version = "1.53.1", features = ["full"] }
 bcrypt = "0.19.1"
-tokio-postgres="0.7.18"
+tokio-postgres = "0.7.18"
+jsonwebtoken = "9.3.0"

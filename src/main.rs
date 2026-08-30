@@ -3,8 +3,10 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use serde::Deserialize;
+use jsonwebtoken::{encode, EncodingKey, Header};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio_postgres::{Client, NoTls};
 
 #[tokio::main]
@@ -59,20 +61,53 @@ async fn signin(
 
     let hashed_password: String = row[0].get(2);
 
-    let is_valid = bcrypt::verify(user.password,&hashed_password).unwrap();
-    if is_valid{
-        (StatusCode::OK, "Success Fully Signed In").into_response()
-    }else{
+    let is_valid = bcrypt::verify(user.password, &hashed_password).unwrap();
+    if is_valid {
+        let username: String = row[0].get(1);
+        let claim = Claim {
+            sub: username,
+            exp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                + 60 * 60,
+        };
+
+        let token = encode(
+            &Header::default(),
+            &claim,
+            &EncodingKey::from_secret("SALMAN SECRET".as_bytes()),
+        )
+        .unwrap();
+        (StatusCode::OK, {
+            Json(LoginResponse {
+                message: String::from("Success Fully Signed In"),
+                token,
+            })
+        })
+            .into_response()
+    } else {
         (StatusCode::UNAUTHORIZED, "Incorrect Password").into_response()
     }
-
 }
 
 #[derive(Debug, Deserialize)]
 struct UserRequest {
-    email: Option<String>,//making email as optional for signin
+    email: Option<String>, //making email as optional for signin
     username: String,
     password: String,
+}
+
+#[derive(Serialize)]
+struct LoginResponse {
+    message: String,
+    token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Claim {
+    sub: String,
+    exp: u64,
 }
 
 async fn db() -> Client {
