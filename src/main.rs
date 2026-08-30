@@ -1,9 +1,10 @@
-use axum::extract::State;
+use axum::extract::{Request, State};
 use axum::http::StatusCode;
+use axum::middleware::{from_fn, Next};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
-use axum::{Json, Router};
-use jsonwebtoken::{encode, EncodingKey, Header};
+use axum::{Extension, Json, Router};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -23,6 +24,7 @@ fn app(client: Client) -> Router {
         .route("/", get(|| async { "Hello World" }))
         .route("/user/signUp", post(signup))
         .route("/user/signIn", post(signin))
+        .route("/protected", get(protected).layer(from_fn(auth_middleware)))
         .with_state(Arc::new(client))
 }
 
@@ -91,6 +93,36 @@ async fn signin(
     }
 }
 
+async fn protected(Extension(username): Extension<String>) -> impl IntoResponse {
+    let res = format!("Hello {}", username);
+    (StatusCode::OK, res).into_response()
+}
+
+/* Middleware functions */
+async fn auth_middleware(mut request: Request, next: Next) -> impl IntoResponse {
+    match request.headers().get("authorization") {
+        None => (StatusCode::UNAUTHORIZED, "No Token Found").into_response(),
+        Some(header_val) => {
+            let token = header_val.to_str().unwrap();
+            match decode(
+                token,
+                &DecodingKey::from_secret("SALMAN SECRET".as_bytes()),
+                &Validation::default(),
+            ) {
+                Err(err) => (StatusCode::UNAUTHORIZED, err.to_string()).into_response(),
+                Ok(data) => {
+                    let claim: Claim = data.claims;
+                    let username = claim.sub;
+                    request.extensions_mut().insert(username);
+                    let req = next.run(request).await;
+                    req
+                }
+            }
+        }
+    }
+}
+
+/* Struct Initialization */
 #[derive(Debug, Deserialize)]
 struct UserRequest {
     email: Option<String>, //making email as optional for signin
@@ -110,6 +142,7 @@ struct Claim {
     exp: u64,
 }
 
+/* Utility function */
 async fn db() -> Client {
     let conn_str =
         "host=localhost port=5432 user=postgres password=postgres dbname=axum_user_managment";
