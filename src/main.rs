@@ -1,5 +1,6 @@
 use axum::extract::{Request, State};
-use axum::http::StatusCode;
+use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
+use axum::http::{HeaderValue, Method, StatusCode};
 use axum::middleware::{from_fn, Next};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
@@ -9,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio_postgres::{Client, NoTls};
+use tower_http::cors::CorsLayer;
 
 #[tokio::main]
 async fn main() {
@@ -20,12 +22,18 @@ async fn main() {
 }
 
 fn app(client: Client) -> Router {
+    let cors_layer = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers([CONTENT_TYPE, AUTHORIZATION])
+        .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap());
+
     Router::new()
         .route("/", get(|| async { "Hello World" }))
         .route("/user/signUp", post(signup))
         .route("/user/signIn", post(signin))
         .route("/protected", get(protected).layer(from_fn(auth_middleware)))
         .with_state(Arc::new(client))
+        .layer(cors_layer)
 }
 
 async fn signup(
