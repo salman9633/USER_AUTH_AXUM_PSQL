@@ -1,8 +1,9 @@
+use axum::body::Body;
 use axum::extract::{Request, State};
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
 use axum::http::{HeaderValue, Method, StatusCode};
 use axum::middleware::{from_fn, Next};
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
@@ -32,6 +33,7 @@ fn app(client: Client) -> Router {
         .route("/user/signUp", post(signup))
         .route("/user/signIn", post(signin))
         .route("/protected", get(protected).layer(from_fn(auth_middleware)))
+        .route("/custom-return-type", get(custom_return))
         .with_state(Arc::new(client))
         .layer(cors_layer)
 }
@@ -106,6 +108,12 @@ async fn protected(Extension(username): Extension<String>) -> impl IntoResponse 
     (StatusCode::OK, res).into_response()
 }
 
+async fn custom_return() -> impl IntoResponse {
+    User {
+        name: String::from("SALMAN FARIS"),
+        age: 25,
+    }
+}
 /* Middleware functions */
 async fn auth_middleware(mut request: Request, next: Next) -> impl IntoResponse {
     match request.headers().get("authorization") {
@@ -150,6 +158,12 @@ struct Claim {
     exp: u64,
 }
 
+#[derive(Serialize)]
+struct User {
+    name: String,
+    age: i32,
+}
+
 /* Utility function */
 async fn db() -> Client {
     let conn_str =
@@ -163,4 +177,11 @@ async fn db() -> Client {
     });
 
     client
+}
+
+impl IntoResponse for User {
+    fn into_response(self) -> Response {
+        let res = serde_json::to_string(&self).unwrap();
+        Response::new(Body::from(res))
+    }
 }

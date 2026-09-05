@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 axum = "0.8.9"
 serde = { version = "1.0.229", features = ["derive"] }
+serde_json = {version = "1.0.150",features = ["default"]}
 tokio = { version = "1.53.1", features = ["full"] }
 bcrypt = "0.19.1"
 tokio-postgres = "0.7.18"
