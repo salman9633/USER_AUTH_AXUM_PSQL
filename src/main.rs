@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio_postgres::{Client, NoTls};
 use tower_http::cors::CorsLayer;
+use tower_http::services::ServeDir;
 
 #[tokio::main]
 async fn main() {
@@ -28,12 +29,15 @@ fn app(client: Client) -> Router {
         .allow_headers([CONTENT_TYPE, AUTHORIZATION])
         .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap());
 
+    let assets = ServeDir::new("./assets");
+
     Router::new()
         .route("/", get(|| async { "Hello World" }))
         .route("/user/signUp", post(signup))
         .route("/user/signIn", post(signin))
         .route("/protected", get(protected).layer(from_fn(auth_middleware)))
         .route("/custom-return-type", get(custom_return))
+        .nest_service("/static", assets)
         .with_state(Arc::new(client))
         .layer(cors_layer)
 }

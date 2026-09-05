@@ -6,9 +6,9 @@ edition = "2021"
 [dependencies]
 axum = "0.8.9"
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = {version = "1.0.150",features = ["default"]}
+serde_json = { version = "1.0.150", features = ["default"] }
 tokio = { version = "1.53.1", features = ["full"] }
 bcrypt = "0.19.1"
 tokio-postgres = "0.7.18"
 jsonwebtoken = "9.3.0"
-tower-http = {version = "0.7.0",features = ["cors"]}
+tower-http = { version = "0.7.0", features = ["cors", "fs"] }
